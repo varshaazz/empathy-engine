@@ -33,7 +33,7 @@ Actual applied values are scaled by the detected intensity (0.0–1.0).
 
 ## Tech Stack
 
-- **Emotion detection** — Claude API (`claude-opus-4-6`) with structured JSON output
+- **Emotion detection** — VADER (NLTK) local sentiment analysis (no API required)
 - **TTS synthesis** — gTTS (Google Text-to-Speech)
 - **Audio processing** — pydub (rate, pitch, volume)
 - **Web interface** — Flask + vanilla JS
@@ -45,7 +45,7 @@ Actual applied values are scaled by the detected intensity (0.0–1.0).
   - macOS: `brew install ffmpeg`
   - Ubuntu: `sudo apt install ffmpeg`
   - Windows: download from https://ffmpeg.org/download.html
-- An Anthropic API key
+
 
 ## Setup
 
@@ -60,8 +60,8 @@ source .venv/bin/activate   # Windows: .venv\Scripts\activate
 # 3. Install dependencies
 pip install -r requirements.txt
 
-# 4. Set your Anthropic API key
-export ANTHROPIC_API_KEY="sk-ant-..."   # Windows: set ANTHROPIC_API_KEY=sk-ant-...
+# 4. Download VADER lexicon (one-time setup)
+python -c "import nltk; nltk.download('vader_lexicon')"
 ```
 
 ## Running
@@ -93,7 +93,7 @@ python tts_engine.py
 ```
 empathy_engine/
 ├── app.py                  # Flask application
-├── emotion_detector.py     # Claude-based emotion classifier
+├── emotion_detector.py     # VADER-based local emotion classifier
 ├── tts_engine.py           # gTTS + pydub vocal modulation
 ├── templates/
 │   └── index.html          # Web UI
@@ -105,7 +105,7 @@ empathy_engine/
 
 ## Design Decisions
 
-1. **Claude for emotion detection** — Rule-based NLP (VADER/TextBlob) only captures positive/negative/neutral. Claude understands nuanced states like "inquisitive" or "concerned" from context, producing more expressive output.
+1. **VADER for emotion detection** —  A lightweight, fast, and fully local sentiment analysis tool that provides reliable emotion classification without requiring external APIs. This ensures the system works offline and avoids dependency failures.
 
 2. **Intensity scaling** — Rather than hard-coded parameter values per emotion, each emotion defines a *target* deviation from neutral. The actual applied parameters are linearly interpolated by intensity, so mild emotions sound subtle and strong emotions sound dramatic.
 
