@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Empathy Engine — AI Voice with Emotion</title>
+  <link rel="stylesheet" href="/static/style.css"/>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🎙️ Empathy Engine</h1>
+      <p class="subtitle">Type any text — AI detects the emotion and speaks it expressively</p>
+    </header>
+
+    <div class="card">
+      <label for="text-input">Your Text</label>
+      <textarea id="text-input" rows="5"
+        placeholder="e.g. This is the best news I've heard all year! I'm thrilled!"></textarea>
+
+      <button id="speak-btn" onclick="synthesize()">
+        <span id="btn-text">🔊 Detect & Speak</span>
+        <span id="btn-spinner" class="spinner hidden"></span>
+      </button>
+    </div>
+
+    <!-- Results panel -->
+    <div id="results" class="card hidden">
+      <h2>Analysis</h2>
+
+      <div class="emotion-badge-row">
+        <span id="emotion-badge" class="emotion-badge">—</span>
+        <span id="intensity-bar-label" class="intensity-label">Intensity: <strong id="intensity-val">—</strong></span>
+      </div>
+      <div class="intensity-bar-bg">
+        <div id="intensity-bar" class="intensity-bar" style="width:0%"></div>
+      </div>
+
+      <p id="reasoning" class="reasoning"></p>
+
+      <h2>Applied Voice Parameters</h2>
+      <div class="params-grid">
+        <div class="param-card">
+          <span class="param-icon">⏩</span>
+          <span class="param-label">Rate Factor</span>
+          <span id="param-rate" class="param-value">—</span>
+        </div>
+        <div class="param-card">
+          <span class="param-icon">🎵</span>
+          <span class="param-label">Pitch Shift</span>
+          <span id="param-pitch" class="param-value">—</span>
+        </div>
+        <div class="param-card">
+          <span class="param-icon">🔊</span>
+          <span class="param-label">Volume Adj.</span>
+          <span id="param-volume" class="param-value">—</span>
+        </div>
+      </div>
+
+      <h2>Audio Output</h2>
+      <audio id="audio-player" controls></audio>
+    </div>
+
+    <div id="error-box" class="error-box hidden"></div>
+  </div>
+
+  <script>
+    const EMOTION_COLORS = {
+      happy:"#f6c90e", excited:"#ff6b35", sad:"#5c85d6",
+      frustrated:"#e05c5c", angry:"#c0392b", neutral:"#7f8c8d",
+      inquisitive:"#27ae60", surprised:"#9b59b6", concerned:"#e67e22",
+      fearful:"#34495e"
+    };
+
+    async function synthesize() {
+      const text = document.getElementById("text-input").value.trim();
+      if (!text) { showError("Please enter some text first."); return; }
+
+      setLoading(true);
+      hideError();
+      document.getElementById("results").classList.add("hidden");
+
+      try {
+        const res = await fetch("/synthesize", {
+          method: "POST",
+          headers: {"Content-Type":"application/json"},
+          body: JSON.stringify({text})
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Server error");
+        renderResults(data);
+      } catch (e) {
+        showError(e.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    function renderResults(data) {
+      const p = data.applied_params;
+
+      // Emotion badge
+      const badge = document.getElementById("emotion-badge");
+      badge.textContent = data.emotion.toUpperCase();
+      badge.style.background = EMOTION_COLORS[data.emotion] || "#888";
+
+      // Intensity
+      const pct = Math.round(data.intensity * 100);
+      document.getElementById("intensity-val").textContent = pct + "%";
+      document.getElementById("intensity-bar").style.width = pct + "%";
+      document.getElementById("intensity-bar").style.background =
+        EMOTION_COLORS[data.emotion] || "#888";
+
+      document.getElementById("reasoning").textContent = data.reasoning;
+
+      // Params
+      document.getElementById("param-rate").textContent   = p.rate_factor + "×";
+      document.getElementById("param-pitch").textContent  = (p.pitch_semitones >= 0 ? "+" : "") + p.pitch_semitones + " st";
+      document.getElementById("param-volume").textContent = (p.volume_db >= 0 ? "+" : "") + p.volume_db + " dB";
+
+      // Audio
+      const audio = document.getElementById("audio-player");
+      audio.src = data.audio_url + "?t=" + Date.now();
+      audio.load();
+      audio.play().catch(()=>{});
+
+      document.getElementById("results").classList.remove("hidden");
+    }
+
+    function setLoading(on) {
+      document.getElementById("btn-text").textContent = on ? "Analysing…" : "🔊 Detect & Speak";
+      document.getElementById("btn-spinner").classList.toggle("hidden", !on);
+      document.getElementById("speak-btn").disabled = on;
+    }
+
+    function showError(msg) {
+      const box = document.getElementById("error-box");
+      box.textContent = "⚠ " + msg;
+      box.classList.remove("hidden");
+    }
+    function hideError() {
+      document.getElementById("error-box").classList.add("hidden");
+    }
+
+    // Allow Ctrl+Enter to submit
+    document.addEventListener("keydown", e => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") synthesize();
+    });
+  </script>
+</body>
+</html>
